@@ -95,19 +95,27 @@ async def list_subtitle_languages(url: str, ctx: Context) -> str:
         # Parse the output to extract language information
         languages = []
         in_subtitles_section = False
+        in_auto_captions_section = False
         
         for line in output.splitlines():
             if "Available subtitles" in line:
                 in_subtitles_section = True
+                in_auto_captions_section = False
+                continue
+            
+            if "Available automatic captions" in line:
+                in_subtitles_section = False
+                in_auto_captions_section = True
                 continue
                 
-            if in_subtitles_section and line.strip():
+            if (in_subtitles_section or in_auto_captions_section) and line.strip():
                 # Look for language codes and names
                 match = re.match(r'\s*(\w+)\s+(\w+)?\s*(.*)', line)
                 if match:
                     lang_code = match.group(1)
                     lang_name = match.group(3).strip()
-                    languages.append(f"{lang_code}: {lang_name}")
+                    prefix = "[Auto] " if in_auto_captions_section else ""
+                    languages.append(f"{lang_code}: {prefix}{lang_name}")
         
         if not languages:
             return "No subtitles found for this video."
@@ -117,7 +125,6 @@ async def list_subtitle_languages(url: str, ctx: Context) -> str:
     except Exception as e:
         print(f"Error listing subtitle languages: {str(e)}", file=sys.stderr)
         return f"Error listing subtitle languages: {str(e)}"
-
 @mcp.tool()
 async def download_subtitles(url: str, ctx: Context, lang: str = "en") -> str:
     """
@@ -236,6 +243,34 @@ def youtube_subtitles_workflow(url: str) -> list[types.PromptMessage]:
         A conversation to help analyze the video's subtitles
     """
     return [
+        types.PromptMessage(
+            role="user",
+            content=types.TextContent(
+                type="text",
+                text=f"What's the title and upload date of this YouTube video: {url}?"
+            )
+        ),
+        types.PromptMessage(
+            role="user",
+            content=types.TextContent(
+                type="text",
+                text=f"What subtitle languages are available for this YouTube video: {url}?"
+            )
+        ),
+        types.PromptMessage(
+            role="user",
+            content=types.TextContent(
+                type="text",
+                text=f"Can you get the English subtitles for this video and summarize what it's about: {url}?"
+            )
+        ),
+        types.PromptMessage(
+            role="user",
+            content=types.TextContent(
+                type="text",
+                text=f"Get the English subtitles for this video and translate them to Chinese: {url}"
+            )
+        ),
         types.PromptMessage(
             role="user",
             content=types.TextContent(
